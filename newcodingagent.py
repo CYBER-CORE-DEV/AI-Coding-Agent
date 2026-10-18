@@ -1,23 +1,3 @@
-"""
-Mini Coding Agent -- simple bugs theek karta hai (koi LangGraph nahi)
-
-Ek LLM (Groq) + 3 tools:
-    search_files    -> kaunsi files bug se related hain
-    search_in_file  -> file mein kaunsi lines (line numbers ke saath)
-    replace_line    -> ek line ko nayi line se badlo
-
-Flow:
-    1. tum bug simple English mein batate ho
-    2. LLM tools chala ke bug dhoondhta hai aur line badalta hai
-    3. agent code ko g++ se compile + run karta hai, output dikhata hai
-    4. compile fail -> agla attempt. compile pass -> tum batate ho bug theek hua ya nahi
-    5. 3 attempts mein nahi hua -> "cannot solve" aur files wapas pehle jaisi
-
-Run:
-    uv run main.py                 # cpp_project/ folder pe kaam karega
-    uv run main.py some/other/dir  # kisi aur folder pe
-"""
-
 import json
 import os
 import shutil
@@ -33,22 +13,20 @@ from tools import TOOLS, code_files, make_tools
 
 
 # ============================================================
-# SETUP  (key repo root ki .env se aati hai)
+# SETUP 
 # ============================================================
 
 load_dotenv()
 
-# Windows terminal LLM ke unicode characters pe crash na kare
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-# free tier ka rate limit chhota hai, SDK khud wait karke retry karega
 groq = Groq(api_key=os.getenv("GROQ_API_KEY"), max_retries=10)
 
 MODEL = "openai/gpt-oss-120b"
 ROOT = Path(__file__).parent
 
-MAX_ATTEMPTS = 3  # itne attempts mein bug theek nahi hua to haar maan lo
-MAX_STEPS = 10    # ek attempt ke andar LLM kitni baar tools chala sakta hai
+MAX_ATTEMPTS = 3 
+MAX_STEPS = 10    
 
 TOKENS = {"calls": 0, "total": 0}
 
@@ -69,7 +47,7 @@ How to work:
 
 
 # ============================================================
-# PRINT HELPERS  (flow samajhne ke liye)
+# PRINT HELPERS  
 # ============================================================
 
 
@@ -109,7 +87,6 @@ def run_attempt(messages: list, functions: dict) -> str | None:
         try:
             response = groq.chat.completions.create(model=MODEL, messages=messages, tools=TOOLS)
         except BadRequestError:
-            # gpt-oss kabhi kabhi galat tool call bana deta hai; groq use reject kar deta hai
             print(f"[step {step}] Groq rejected a malformed tool call, asking again")
             continue
 
@@ -117,7 +94,6 @@ def run_attempt(messages: list, functions: dict) -> str | None:
         TOKENS["total"] += response.usage.total_tokens
         message = response.choices[0].message
 
-        # koi tool call nahi -> LLM ke hisaab se kaam ho gaya
         if not message.tool_calls:
             messages.append({"role": "assistant", "content": message.content or ""})
             print(f"[step {step}] LLM finished (no tool call)")
@@ -144,7 +120,6 @@ def run_attempt(messages: list, functions: dict) -> str | None:
                 else:
                     result = functions[name](**args)
             except Exception as e:
-                # galat arguments ka error bhi LLM ko bata do, wo khud theek karega
                 result = f"Tool call failed: {e}"
 
             print("           result:")
@@ -173,7 +148,6 @@ def compile_and_run(workspace: Path) -> tuple[bool, str]:
         return False, build.stderr[:3000]
 
     try:
-        # stdin band -- program cin pe atak ke hamara terminal na kha jaaye
         run = subprocess.run([str(exe)], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired:
         return True, "Program did not finish in 10 seconds (infinite loop?)"
@@ -202,7 +176,6 @@ def main():
 
     functions = make_tools(workspace)
 
-    # agent fail ho jaaye to files wapas pehle jaisi kar denge
     snapshot = {f: f.read_bytes() for f in files}
 
     messages = [
@@ -252,7 +225,6 @@ def main():
         )})
 
     else:
-        # for-else: loop break ke bina khatam hua -> bug theek nahi hua
         header(f"Sorry, I could not solve this bug in {MAX_ATTEMPTS} attempts.")
         for f, original in snapshot.items():
             f.write_bytes(original)
