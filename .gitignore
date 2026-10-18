@@ -9,3 +9,22 @@ wheels/
 # Virtual environments
 .venv
 .env
+# Python
+__pycache__/
+*.pyc
+
+# Virtual Environments
+.venv/
+**/.venv/
+
+# Environment Variables
+.env
+**/.env
+
+# Browser cookie exports — these are live login sessions, never commit them
+cookies.txt
+*cookies*.txt
+**/cookies.txt
+
+# VS Code
+.vscode/
